@@ -15,24 +15,12 @@ import { notifications } from "@mantine/notifications";
 import { IconLogin, IconUserPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { loginUser, registerUser } from "../../services/api";
+import { useAuth } from "../../contexts/AuthContext";
 import lecionaai_logo from "../../assets/lecionaai_logo.svg";
 
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  return "Erro desconhecido";
-};
-
-const getErrorResponseMessage = (error: unknown): string => {
-  if (typeof error === "object" && error !== null) {
-    const err = error as { response?: { data?: { message?: string } } };
-    if (err.response?.data?.message) return err.response.data.message;
-  }
-  return getErrorMessage(error);
-};
-
 const LandingPage = () => {
-  console.log("LandingPage: Componente montado");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,52 +53,56 @@ const LandingPage = () => {
       return;
     }
     
-    console.log("handleLogin: Tentando login para", email);
     setLoading(true);
     try {
-      const { token, message } = await loginUser(email, password);
-      console.log("handleLogin: Resposta do loginUser", { token, message });
-      if (!token) throw new Error(message || "Falha na autenticação");
-      localStorage.setItem("token", token);
-      console.log("handleLogin: Login realizado, navegando para /app");
-      navigate("/app");
-    } catch (error: unknown) {
-      const msg = getErrorResponseMessage(error);
+      const response = await loginUser(email, password);
+      if (response.token) {
+        login(response.token);
+        notifications.show({
+          color: "green",
+          title: "Sucesso",
+          message: "Login realizado com sucesso!",
+        });
+        navigate("/app");
+      }
+    } catch (error) {
       notifications.show({
         color: "red",
-        title: <span style={{ color: "black" }}>Erro de Login</span>,
-        message: <span style={{ color: "black" }}>{msg}</span>,
-        style: { backgroundColor: "white" },
+        title: "Erro de Login",
+        message: error instanceof Error ? error.message : "Erro ao fazer login",
       });
-      console.error("handleLogin: Erro no login", error);
     } finally {
       setLoading(false);
-      console.log("handleLogin: Finalizado");
     }
   };
 
   const handleRegister = async () => {
+    if (!registerEmail || !registerPassword) {
+      notifications.show({
+        color: "red",
+        title: "Erro",
+        message: "Preencha todos os campos para criar sua conta!",
+      });
+      return;
+    }
+
     setRegisterLoading(true);
     try {
       const response = await registerUser(registerEmail, registerPassword);
       notifications.show({
         color: "green",
-        title: <span style={{ color: "black" }}>Cadastro realizado</span>,
-        message: <span style={{ color: "black" }}>{response.message}</span>,
-        style: { backgroundColor: "white" },
+        title: "Sucesso",
+        message: response.message,
       });
       setModalOpen(false);
       setRegisterEmail("");
       setRegisterPassword("");
-    } catch (error: unknown) {
-      const msg = getErrorResponseMessage(error);
+    } catch (error) {
       notifications.show({
         color: "red",
-        title: <span style={{ color: "black" }}>Erro ao cadastrar</span>,
-        message: <span style={{ color: "black" }}>{msg}</span>,
-        style: { backgroundColor: "white" },
+        title: "Erro ao cadastrar",
+        message: error instanceof Error ? error.message : "Erro ao criar conta",
       });
-      console.error("handleRegister: Erro no registro", error);
     } finally {
       setRegisterLoading(false);
     }
@@ -147,9 +139,7 @@ const LandingPage = () => {
                 label="Email"
                 placeholder="Digite seu email"
                 value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setEmail(e.target.value)
-                }
+                onChange={(e) => setEmail(e.target.value)}
                 styles={inputStyles}
               />
               <TextInput
@@ -157,9 +147,7 @@ const LandingPage = () => {
                 placeholder="Digite sua senha"
                 type="password"
                 value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setPassword(e.target.value)
-                }
+                onChange={(e) => setPassword(e.target.value)}
                 styles={inputStyles}
               />
               <Button
@@ -212,9 +200,7 @@ const LandingPage = () => {
               label="Email"
               placeholder="Digite seu email"
               value={registerEmail}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setRegisterEmail(e.target.value)
-              }
+              onChange={(e) => setRegisterEmail(e.target.value)}
               styles={inputStyles}
             />
             <TextInput
@@ -222,9 +208,7 @@ const LandingPage = () => {
               placeholder="Digite sua senha"
               type="password"
               value={registerPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setRegisterPassword(e.target.value)
-              }
+              onChange={(e) => setRegisterPassword(e.target.value)}
               styles={inputStyles}
             />
             <Button
